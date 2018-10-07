@@ -1,0 +1,135 @@
+	---------------------------------------------------------
+	:: 		  Instalando Arch-Linux 	       ::
+	---------------------------------------------------------
+	:: 		Por: Arthur de O. Pereira	       ::
+	---------------------------------------------------------
+
+
+01 - Faça o Download do Arch-linux no site: https://archlinux.org/ e faça um usb bootável e dê boot
+	
+	# mkfs.exfat /dev/sdx		"Formatando o pendrive"
+	# dd if=/home/usuario/localdoarquivo/arch.iso of=/dev/sdx bs=512 status="Progress"
+
+02. Conecte com a internet.
+
+	# supervisorctl restart dhcpcd
+	# wifi-menu
+
+03. particione a hd/ssd
+
+	# fdisk /dev/sda
+
+		ex: hd 80G
+			
+			/dev/sda1 = 250M	(/boot)
+			/dev/sda2 = 34.5G	(/)
+			/dev/sda3 = 40G		(/home)
+			/dev/sda4 = opção	(swap)
+
+04.Formate as partições:
+
+	# mkfs.ext2 /dev/sda1		"ext2 ou ext3 para partições boot"
+	# mkfs.ext4 /dev/sda2		"ext4 para sistemas de arquivos"
+	# mkfs.ext4 /dev/sda3		"	"	"	"	"
+
+05. Crie e monte as partições.
+
+	# mount /dev/sdx /mnt
+	# mkdir /mnt/boot
+	# mount /dev/sdx /mnt/boot
+	# mkdir /mnt/home
+	# mount /dev/sdx /mnt/home
+	# mkswap /dev/sda4		(opcional)
+	# swapon /dev/sda4		(opcional)
+
+06. Instale os arquivos base do sistema
+
+	# pacstrap -i /mnt base base-devel openssh git vim
+
+07. inicie o genfstab para definir em /etc/genfstab como as partições e varios outros dispositivos em blocos serão montados etc....
+
+	# genfstab -U -p /mnt >> /mnt/etc/fstab
+
+Opcional: para fazer /tmp um ramdisk adicione em /mnt/etc/fstab:
+
+	tmpfs	/tmp	tmpfs defaults,noatime,mode=1777	0	0
+
+08. Entre no novo sistema
+
+	# arch-chroot /mnt /bin/bash
+
+09. Configure a localização
+
+	# vim /etc/locale.gen
+
+	descomente a linguagem desejada ex:
+	pt_BR.UTF-8 UTF-8
+
+	# locale-gen
+
+10. Crie o arquivo de configuração de lingua
+
+	# echo LANG=pt_BR.UTF-8 >> /etc/locale.conf
+	# export LANG=pt_BR.UTF-8
+
+11. Configure o horário
+
+	# ls /usr/share/zoneinfo/America/Sao_Paulo
+	# ln -sf /usr/share/zoneinfo/America/Sao_Paulo /etc/localtime
+
+12. Sintonize o relógio de hardware com sistema.
+
+	# hwclock --systohc --utc
+
+13. Habilite o repositório de [Multi-lib] e sintonize os repositórios
+
+	# vim /etc/pacman.conf    "Use o editor de texto de sua preferência ex: " # nano /etc/pacman.conf "
+	
+	[multilib]
+	include = /etc/pacman.d/mirrolist
+
+	# pacman -Syy
+
+14. Dê um nome para a máquina
+	
+	# echo nomedamaquina >> /etc/hostname
+
+15. Adicionando entrada correspondente.
+
+	# vim /etc/hosts
+
+	127.0.0.1	localhost.localdomain	localhost
+	::1		localhost.localdomain	localhost
+	127.0.1.1	nomedohost.localdomain	localhost
+
+16. instalando o autocomplemento
+
+	# pacman -S bash-completion
+
+17. Instale o iniciador grub
+
+	# pacman -S grub
+	# pacamn -S os-prober (opcional: para encontrar outros sistemas)
+	# grub-install --target=i386-pc --recheck /dev/sda
+
+18. Instalalar o iniciador do initramfs
+
+	# mkinitcpio -p linux
+
+19. Instale os arquivos de configuração de rede e ative-os
+
+	# pacman -S networkmanager
+	# systemctl enable NetworkManager
+
+20. Saia do chroot
+
+	# exit
+
+21. Desmonte as partições, retire o "swap se tiver adicionado"
+	
+	# umount -R /mnt		("-R" Desmonta recursivamente)
+	# swapoff			(Desmonta a partição swap)
+
+22. Reinicie para abrir o novo sistema.
+
+	# reboot 
