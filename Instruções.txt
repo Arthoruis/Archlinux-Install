@@ -83,12 +83,19 @@ Opcional: para fazer /tmp um ramdisk adicione em /mnt/etc/fstab:
 
 13. Habilite o repositório de [Multi-lib] e sintonize os repositórios
 
-	# vim /etc/pacman.conf    "Use o editor de texto de sua preferência ex: " # nano /etc/pacman.conf "
+	# vim /etc/pacman.conf    "Use o editor de texto de sua preferência ex: nano /etc/pacman.conf "
 	
 	[multilib]
 	include = /etc/pacman.d/mirrolist
+	
+	"E adicione no final"
+	
+	[Archlinuxfr]
+	SigLevel = Never
+	Server = http://repo.archlinux.fr/$arch
 
 	# pacman -Syy
+	# pacman -S yaourt
 
 14. Dê um nome para a máquina
 	
@@ -110,7 +117,7 @@ Opcional: para fazer /tmp um ramdisk adicione em /mnt/etc/fstab:
 
 	# pacman -S grub
 	# pacamn -S os-prober (opcional: para encontrar outros sistemas)
-	# grub-install --target=i386-pc --recheck /dev/sda
+	# grub-install /dev/sda
 
 18. Instalalar o iniciador do initramfs
 
@@ -121,15 +128,49 @@ Opcional: para fazer /tmp um ramdisk adicione em /mnt/etc/fstab:
 	# pacman -S networkmanager
 	# systemctl enable NetworkManager
 
-20. Saia do chroot
+20. Crie um usário e adicione no grupo "wheel"
+
+	# useradd usuário -m
+	# gpasswd -a usuário wheel
+	# passwd usuário
+	
+(Opcional)
+
+	# gpasswd -a remontti sys
+	# gpasswd -a remontti lp
+	# gpasswd -a remontti network
+	# gpasswd -a remontti video
+	# gpasswd -a remontti optical
+	# gpasswd -a remontti storage
+	# gpasswd -a remontti scanner
+	# gpasswd -a remontti power
+	
+21. Permita que o grupo wheel faça atividades administrativas.
+
+	# visudo
+	
+	Descomente e salve
+	
+	%wheel ALL=(ALL) ALL
+
+
+22. Saia do chroot
 
 	# exit
 
-21. Desmonte as partições, retire o "swap se tiver adicionado"
+23. Desmonte as partições, retire o "swap se tiver adicionado"
 	
 	# umount -R /mnt		("-R" Desmonta recursivamente)
 	# swapoff			(Desmonta a partição swap)
 
-22. Reinicie para abrir o novo sistema.
+24. Reinicie
 
-	# reboot 
+	# reboot
+	
+25. Encontre o usuário na pasta home
+
+	$ ls /home/usuário/
+	$ sudo pacman -S xdg-user-dirs
+	$ xdg-user-dirs-update
+
+[INSTALANDO INTERFACE GRÁFICA E 
