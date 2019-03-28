@@ -1,0 +1,482 @@
+-----------------
+| ARCHLINUX-USB |
+-----------------
+
+Essa página explica como instalar o Arch Linux em um dispositivo USB (Pendrive). O resultado final será uma instalação identica a uma instalação normal com o máximo de compatibilidade com qualquer máquina ao qual esteja dando boot.
+
+-- Antes de você começar --
+
+Uma instalação típica do Arch Linux com um desktop enviroment (Área de Trabalho) funcinal geralmente ocupa entre 3GB à 5GB, eu recomendo usar um dispositivo usb de no mínimo 16GB, pois será um sistema completo instalado dentro de um pendrive, não emulado como no caso de uma live iso. Dando permissão para que você possa instalar várias ferramentas e aplicações que venha a utilizar.
+
+-- Fonte de instalação: live image ou um sistema Arch Linux já instalado --
+
+1. Live image: você deve baixar a iso do sistema Arch Linux direamente do site: https//www.archlinux.org/downloads/, criar um pendrive bootável ou gravar um cd.
+
+Para criar um pendrive bootável pelo sistema Windows por exemplo, você deve baixar o Rufus: https://rufus.ie/, e seguir os passos como explica no site.
+
+Para criar um pendrive bootável pelo sistema Linux você deve usar o comando dd "disk cloning" tendo cuidado ao adicionar a partição de saída onde se encontra seu pendrive pois o "disk cloning" ele também é conhecido como "disk destroyer" então aonde está "sdX" verificar qual é a unidade correta com o comando "lsblk" ou "fdisk -l" ou qualquer outro comando que prefira, só não erre a partição.
+
+# dd if=/caminho/archlinux.iso of=/dev/sdX bs=4M status=progress && sync
+
+2. Sistema Arch Linux já instalado: Muitos não conhecem essa flexibilidade que o Sistema Arch Linux tem, pois você pode fazer a instalação de seu sistema através dele mesmo, tendo apenas que instalar apenas um pacote de seu repositório oficial.
+
+Para instalar sistemas Arch Linux através de um sistema já préviamente instalado primeiro você deve instalar um pacote chamado "arch-install-scripts" que irá conter o scripts necessário para que você instalar e entrar no novo sitema instalado como: pacstrap, genfstab, arch-chroot etc...
+
+# pacman -S arch-install-scripts
+
+-- BIOS vs UEFI --
+
+Há hoje dois tipos de sistemas que as placa mãe utilizam para se comunicar entre um sistema operacional e seus firmware. O standard (legacy) BIOS (basic imput/output system), e há um mais novo EFI (unified extensible firmware interface).
+
+Iremos instalar os dois para que possa dar boot tanto numa BIOS caso encontre uma máquina mais antiga ou UEFI, uma máquina mais nova.
+
+-- 1. Particionando --
+
+Já dando boot por uma live image iso ou dentro de um sistema já instalado iremos particionar o dispositivo usb alvo. Há várias ferramentas de particionamento que você pode utilizar dentro da live image ou dentro do sistema já instalado, nós iremos utilizar aqui o "gdisk".
+
+1.1. primeiro limpe a unidade usb digitando "d" no prompt interativo.
+
++---------------------------+
+| Command (? for help): "d" |
+| No partitions             |
++---------------------------+
+
+1.2. Crie uma nova GUID partitions table:
+
++------------------------------------------------------+
+| Command (? for help): "o"			       |
+| This option deletes all partitions and creates a new |
+| protective MBR.                                      |
+| Proceed? (Y/N): "y"				       |
++------------------------------------------------------+
+
+1.3. Crie uma partição de início de 10MB MBR no começo do dispositivo usb:
+
++----------------------------------------------------------+
+| Command (? for help): "n"				   |
+| Partition number (1-128, default 1):			   |
+| First Sector (34-XXXXXX), defualt = 64)		   |
+| or {+-}size{KMGTP}:					   |
+| Last sector (64-XXXXXX), default = XXXXXX)		   |
+| or {+-}size{KMGTP}: "+10MB"				   | 
+| Current type is 'Linux filesystem'			   |
+| Hex code or GUID (L to show codes, Enter = 8300): "EF02" |
++----------------------------------------------------------+
+
+1.4. Crie uma partição de 160MB ESP para a partição de Boot, na documentação do Arch Linux recomendam uma partição Boot de no mínimo 500MB mas como iremos instalar o sistema em um dispositivo usb temos que economizar o máximo possível para sobrar para o sistema, mas fica a sua escolha:
+
+
++----------------------------------------------------------+
+| Command (? for help): "n"				   |
+| Partition number (2-128, default 2):			   |
+| First Sector (34-XXXXXX), defualt = 64)		   |
+| or {+-}size{KMGTP}:					   |
+| Last sector (64-XXXXXX), default = XXXXXX)		   |
+| or {+-}size{KMGTP}: "+160MB"			  	   | 
+| Current type is 'Linux filesystem'			   |
+| Hex code or GUID (L to show codes, Enter = 8300): "EF00" |
++----------------------------------------------------------+
+
+1.5. E finalmente dê o espaço restante para a partição do sistema Linux:
+
++-----------------------------------------------------------+
+| Command (? for help): "n"				    |
+| Partition number (3-128, default 3):			    |
+| First Sector (34-XXXXXX), defualt = 64)		    |
+| or {+-}size{KMGTP}:					    |
+| Last sector (64-XXXXXX), default = XXXXXX)		    |
+| or {+-}size{KMGTP}: "Enter"			  	    | 
+| Current type is 'Linux filesystem'			    |
+| Hex code or GUID (L to show codes, Enter = 8300): "Enter" |
++-----------------------------------------------------------+
+
+1.6. Cheque como ficou as partições:
+
++--------------------------+
+|# Command (? for help): p |
++--------------------------+
+
+Deverá ser halgo como isso:
+
++---------------------------------------------------------+
+| Number  Start       End       Size   Code   Name        |   
+|    1       64     20543   10.0 MiB   EF02   BIOS boot   |
+|    2    20544   1044543  160.0 MiB   EF00   EFI System  |
+|    3  1044544  62521310   29.6 GiB   8300   Linux       |
++---------------------------------------------------------+
+
+1.7. Se estiver tudo certo escreva as partições no dispositivo usb e saia do gdisk.
+
++-------------------------+
+| Command (? for help): w |
++-------------------------+
+
+-- 2. Formatando --
+
+2.1 Verifique o novo block layout do dispotivo usb:
+
++-----------------+
+|# lsblk /dev/sdX |
++-----------------+
+
+Você deverá ter agora três partições agora no dispotivo usb: uma partição de 10MB /dev/sdX1, uma partição de 160MB /dev/sdX2, e uma partição utilizando toda a memória restante /dev/sdX3:
+
++----------------------------------------------------+
+| NAME	   MAJ:MIN  RM    SIZE  RO  TYPE  MOUNTPOINT |
+| sdX        8:112   1   14.6G   0  disk             |
+| |-sdX1     8:113   1     10M   0  part             |
+| |-sdX2     8:114   1    160M   0  part             |
+| |_sdX3     8:115   1   29.6G   0  part             |
+|                                                    |
++----------------------------------------------------|
+
+2.2 Formate as partições, não formate a primeira de 10MB /dev/sdX1. Essa é a partição BIOS/MBR.
+
+Formate a de 160MB EFI System partition, com um formato de FAT32 filesystem:
+
++--------------------------+
+|# mkfs.fat -F32 /dev/sdX2 |
++--------------------------+
+
+Formate a partição Linux com ext4 filesystem:
+
++----------------------+
+|# mkfs.ext4 /dev/sdX3 |   
++----------------------+
+
+-- 3. Instalando os pacotes base do sistema --
+
+3.1 Monte as partições: Arch Linux live iso - no caso da iso bootável você deve criar o diretório /mnt e /mnt/boot onde estarão o sistema e partição boot.
+
+Monte a onde estará a partição raiz /.
++-----------------------+
+|# mkdir /mnt           |
+|# mount /dev/sdX3 /mnt |
++-----------------------+
+
+Crie monte a partição /boot.
+
++----------------------------+
+|# mkdir /mnt/boot           |
+|# mount /dev/sdX2 /mnt/boot |
++----------------------------+
+
+ou
+
+3.1.1 Monte as partições: Arch Linux sistema já instalado - no caso se estiver usando um sistema Arch Linux já instalado como um sistema em um pc ou usb mesmo, não é preciso fazer a partição /mnt pois já foi criado quando foi instalado o sistema, restando apenas criar a partição /boot.
+
++----------------------------+
+|# mount /dev/sdX3 /mnt      |
+|# mkdir /mnt/boot           |
+|# mount /dev/sdX2 /mnt/boot |
++----------------------------+
+
+3.2 Instale os pacotes base do sistema.
+
++-----------------------------------------------+
+|# pacstrap /mnt base base-devel dialog git vim |
++-----------------------------------------------+
+
+base - São os arquivos base do sistema
+base-devel - São os arquivos de ferramenta do sistema
+dialog - caso você precise acessar o wifi-menu
+git - Caso precise clonar algum repositório no Github, Gitlab etc...
+vim - Um editor de texto para edição de arquivos do sistema, mas você pode instalar qual for de seu gosto como o "nano" por exemplo.
+
+3.3 Gerar o fstab.
+
+O fstab é utilizado por sistemas Linux para montar corretamente as partições durante o boot. As partições podem ser indentificadas no fstab de diversas maneiras, e algumas instalações ainda utilizam o tabelamento padrão (/dev/...) ao invés de UUIDS. Isso certamente seria um grande problema e causaria erro no nosso sistema usb pois cada vez que desse boot em uma máquina direfente seria reconhecido a partição errada.
+
+Adicione a tag -U para que o fstab seja apenas reconhecido por identificadores UUIDs.
+
++-------------------------------------+
+|# genfstab -U /mnt >> /mnt/etc/fstab |
++-------------------------------------+
+
+Cheque manualmente /etc/fstab em um editor para ver se rotulou corretamente as partições que será usada para dar boot. Talvez você precise retirar entradas do seu sistema host. Se não deixe como está e só iremos modificar mais a frente.
+
+ex:
+----------------------------------------------------------------------------
+# Static information about the filesystems.
+# See fstab(5) for details.
+
+# <file system> <dir> <type> <options> <dump> <pass>
+# /dev/sdd3
+UUID=e075ed90-ea2d-4389-b153-821efd2db6f5	/         	ext4      	rw,relatime	0 1
+
+# /dev/sdd2
+UUID=6CB3-04DE      	/boot     	vfat      	rw,relatime,fmask=0022,dmask=0022,codepage=437,iocharset=iso8859-1,shortname=mixed,utf8,errors=remount-ro	0 2
+
+# /swapfile           	none      	swap      	defaults  	0 0
+-----------------------------------------------------------------------------1
+
+-- 4. Configurando o novo sistema --
+
+Seu dispositivo usb, agora tem um Sistema Linux totalmente instalado. Mas antes de darmos o primeiro boot precisaremos configurar algumas.
+
+Iremos também instalar algumas dependências e drivers para que possa suportar conexão cabeada, wireless, todos os drivers para placas gráficas comuns, touchpad, mousepad, dispositivos de entrada e suporte para bateria de notebook. Nós também iremos fazer algumas configurações para que termos a certeza que o sistema consiga carregar dispositivos removíveis antes de tentar acessar os arquivos de sistema (filesystem).
+
+4.1 Chroot.
+
+Começemos por entrar no novo sistema pelo modo de chroot.
+
++-------------------+
+|# arch-chroot /mnt |
++-------------------+
+
+4.2 locale.
+Use o tab-completion para descobrir a entrada apropriada para sua região e cidade, no caso colocarei para São Paulo.
+
++--------------------------------------------------------------+
+|# ln -sf /usr/share/zoneinfo/America/Sao_Paulo /etc/localtime |
++--------------------------------------------------------------+
+
+E vamos gerar o relógio do sistema:
+
++--------------------+
+|# hwclock --systohc |
++--------------------+
+
+Edite /etc/locale.gen a linguagem desejada para o sistema:
+
++----------------------+
+|# vim /etc/locale.gen |  *(Para Português pt-br, descomente pt_BR.UTF-8 UTF-8)
++----------------------+
+
+Agora vamos gerar-lo.
+
++-------------+
+|# locale-gen |
++-------------+
+
+Adicione a variável de linguagem em /etc/locale.conf:
+
++-------------------------------------------+
+|# echo LANG=pt_BR.UTF-8 > /etc/locale.conf |
++-------------------------------------------+
+
+4.3 Hostname.
+
+Crie o arquivo /etc/hostname que dará o nome a seu sistema
+
++-------------------------------------+
+|# echo nomedosistema > /etc/hostname | ex: "# echo Arch-USB > /etc/hostname"
++-------------------------------------+
+
+Abra /etc/hosts em um editor e adicione as seguintes linhas:
+
++-----------------+
+|# vim /etc/hosts |
++-----------------+
+
++-------------------------------------------------------+
+| 127.0.0.1	localhost.localdomain	localhost       |
+| ::1 		localhost.localdomain	localhost       |
+| 127.0.1.1	nomedosistema.localdomain nomedosistema |
++-------------------------------------------------------+
+
+4.4 RAM disk image.
+
+Alguns ajustes serão necessários para o (RAM disk image) inicial. Nós precisaremos ter certeza que o bloco do dispositivo seje carregado antes que os arquivos de sistema apropriadamente. Para configurar uma (RAM disk image) customizada, abra /etc/mkinitcpio.conf em um editor:
+
++---------------------------+
+|# vim /etc/mkinitcpio.conf |
++---------------------------+
+
+Tenha certeza que os hooks (block e keyboard) venham antes de (filesystem) e logo após (udev):
+
++----------------------------------------------------------------------+
+| HOOKS=(base udev block keyboard autodetect modconf filesystems fsck) |
++----------------------------------------------------------------------+
+
+Agora gere RAM disk image inicial:
+
++----------------------+
+|# mkinitcpio -p linux |
++----------------------+
+
+4.5 Interface de rede.
+
+(Arch Linux's basic service manager), ou systemd, assina a interface de rede já previamente nomeados baseado no hardware do dispositivo atual. E isso é ótimo para qualquer outro tipo de instalação menos para uma instalação usb. para ter certeza que ethernet e wifi terão sempre os mesmos respectivos nomes eth0 e wlan0, iremos reverter o Arch Linux USB para o mapeamento de dispositivo tradicional.
+
++------------------------------------------------------------+
+|# ln -s /dev/null /etc/udev/rules.d/80-net-setup-link.rules |
++------------------------------------------------------------+
+
+4.6 Configuração do journal.
+
+Uma instalação Arch Linux tradicinal é configurada pelo systemd para que continuamente escreva no journal várias informações sobre os processos em execução e salvar aquela informação no disco. Mas para uma instalação no usb não é bom pois pode ocupar muito espaço. Podemos mudar algumas opções no (journald.conf) para que o journal seje inteiramente gravado na RAM 'fazendo com que diminua seu tamanho'. Abra em um editor: /etc/systemd/journald.conf
+
++---------------------------------+
+|# vim /etc/systemd/journald.conf |
++---------------------------------+
+
+Para mudar o armazenamento do journal para a RAM, descomente storage e coloque como volatile:
+
++------------------+
+| Storage=volatile |
++------------------+
+
+E uma precaução adicional, para ter certeza que o sistema operacional não irá encher a RAM com arquivos do journal, iremos colocar o máximo que ele poderá usar:
+
++------------------+
+| SystemMaxUse=16M |
++------------------+
+
+4.7 Opção de montagem.
+
+Sistemas de arquivos (filesystem) modernos são capazes de gravar vários metadata (último acessado, último modificado, direito de usuários, etc...) sobre seus arquivos. Um sistema de arquivo padrão geralmente mantem gravado o máximo dessas informações o possível. Mas para um sistema em um usb devemos limitar o quanto dessa informação é guardada para que não ocupe muito espaço. Modificando no arquivo (fstab) opção de montagem (relatime) para (noatime), irá fazer com que nenhuma escrita ocorra quando um arquivo for lido, somente quando for modificado.
+
++-----------------+
+|# vim /etc/fstab |
++-----------------+
+
+ex: 
+---------------------------------------------------------------------------------------
+# Static information about the filesystems.
+# See fstab(5) for details.
+
+# <file system> <dir> <type> <options> <dump> <pass>
+# /dev/sdd3
+UUID=e075ed90-ea2d-4389-b153-821efd2db6f5	/         	ext4      	rw,noatime	0 1
+
+# /dev/sdd2
+UUID=6CB3-04DE      	/boot     	vfat      	rw,noatime,fmask=0022,dmask=0022,codepage=437,iocharset=iso8859-1,shortname=mixed,utf8,errors=remount-ro	0 2
+
+# /swapfile           	none      	swap      	defaults  	0 0
+---------------------------------------------------------------------------------------
+
+4.8 Bootloader.
+
+Para que possamos dar boot em ambos os modos tanto BIOS/MBR quando EFI, instalaremos do seguinte modo.
+
+Instale os pacotes do "grub" e "efibootmgr".
+
++----------------------------+
+|# pacman -S grub efibootmgr |
++----------------------------+
+
+Não se esqueça de verificar qual dispositivos irá instalar, use o "lsblk".
+
+Instalando o GRUB para MBR/BIOS booting mode:
+
++----------------------------------------------------------------+
+|# grub-install --target=i386-pc --boot-directory=/boot /dev/sdX | !!! sdX = dispositivo usb
++----------------------------------------------------------------+
+
+Instale o GRUB para EFI booting mode:
+
++--------------------------------------------------------------------------------------------+
+|# grub-install --target=x86_64-efi --efi-directory=/boot --boot-directory=/boot --removable |
++--------------------------------------------------------------------------------------------+
+
+Agora é gerar a configuração do GRUB:
+
++---------------------------------------+
+|# grub-mkconfig -o /boot/grub/grub.cfg |
++---------------------------------------+
+
+4.9 Suporte a internet.
+
++---------------------------------------------+
+|# pacman -S ifplugd iw networkmanager dialog |
++---------------------------------------------+
+
+Habilite a interface de rede.
+
++----------------------------------+
+|# systemctl enable NetworkManager |
++----------------------------------+
+
+4.10 Suporte: Video, touchpad e bateria.
+
++---------------------------------------------------------------------------------------------------------------+
+|# pacman -S xf86-video-ati xf86-video-intel xf86-video-nouveau xf86-video-vesa xf86-input-synaptics acpi polkit|
++---------------------------------------------------------------------------------------------------------------+
+
+4.11 Mude a senha root
+
++---------+
+|# passwd |
++---------+
+
+4.12 Crie um novo usuário.
+
+Crie um usuário e adicione ao grupo wheel:
+
++------------------------------------+
+|# useradd -m nomedousuário -G wheel |
++------------------------------------+
+
+Crie uma senha:
+
++-----------------------+
+|# passwd nomedousuário |
++-----------------------+
+
+Habilite o sudo para este usuário:
+
++-----------------------------------------------------------------------+
+|# echo 'nomedousuário ALL=(ALL) ALL' > /etc/sudoers.d/10-nomedousuário |
++-----------------------------------------------------------------------+
+
+4.12 Dê boot no novo sistema.
+
++-------+
+|# exit |
++-------+
+
+Desmonte as partições:
+
++-----------------------+
+| umount /mnt/boot /mnt |
++-----------------------+
+
++---------+
+|# reboot |
++---------+
+
+4.13 Pós install.
+
+Copie o exemplo de perfil de ethernet em /etc/netcltl/ e inicie:
+
++-----------------------------------------------------------------------+
+|# cp /etc/netctl/examples/ethernet-dhcp /etc/netctl/eth0-nomedamaquina |
++-----------------------------------------------------------------------+
+
++----------------------------------------------+
+|# systemctl start netctl-ifplugd@eth0.service |
++----------------------------------------------+
+
++-----------------------------------------------+
+|# systemctl enable netctl-ifplugd@eth0.service |
++-----------------------------------------------+
+
+Inicie a internet wifi caso precise com:
+
++------------+
+|# wifi-menu |
++------------+
+
+Uma vez conectado a internet inicie o protocolo time (time network protocol):
+
++---------------------------+
+|# timedatectl set-ntp true |
++---------------------------+
+
+Instale e crie as pastas e subpastas do usuário
+
++--------------------------+
+|# pacman -S xdg-user-dirs |
++--------------------------+
+
++-----------------------+
+|# xdg-user-dirs-update |
++-----------------------+
+
+
+Feito!!!
+
+
+Arthur de O. Pereira
+Arthcomicando@gmail.com
