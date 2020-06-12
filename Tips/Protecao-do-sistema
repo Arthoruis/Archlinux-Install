@@ -1,0 +1,43 @@
+=================================================
+| SEGURANÇA NO ARCH LINUX E GUIA DE PRIVACIDADE |
+=================================================
+
+Esse guia destina-se a ajudar-lo a manter seguro seu sistema contra o maior número de ataques o possíve.
+Esse artigo é diferente do que tem no wiki porquê o aquele não abrange tudo e não fala de privacidade.
+O artigo contido no Wiki ainda é um grande guia e eu recomendo que o leia.
+
+Essas configurações deverá funcionar na maioria dos servidores de desktops.
+
+Também deverá funcionar para outras distribuições. Algumas configurações talvez seja diferentes ou alguns arquivos de configurações estejam em lugares diferentes.
+
+Obs. Este artigo é uma tradução deste artigo: https://theprivacyguide1.github.io/linux_hardening_guide.html, e todo crédito é somente do mesmo.
+
+1. Kernels
+
+Uma parte importante na segurança do Linux é proteger o kernel contra ataques de exploits.
+Isso pode ser feito com parâmetros no boot, configurações do sysctl, patches do kernel etc...
+
+1.1 Sysctl é uma ótima ferramenta que pode aumentar a segurança dos kernels mudando certas configurações. 
+Você pode usar 'sysctl -w (param [valor])' para mudar configurações temporariamente. Para mudar permanentemente você deve editar /etc/sysctl.conf (Isso não irá sair do Arch) or adicionar arquivos .conf em /etc/sysctl.d/. nós iremos estar usando /etc/systectl.d/
+
+Em /etc/sysctl.d/ crie um arquivo chamado "kptr_restrict.conf" (pode ser com outro nome apenas deve ter '.conf'). Nesse arquivo adicione:
+
+"kernel.kptr_restrict=2"
+
+Essa configuração esconde os simbolos do kernel in /proc/kallsyms/. Alternativamente você pode adicionar "kernel.kptr_restrict=1" mas esse apenas esconde os simbolos do kernel para usuários, já o outro para usuário root.
+
+Agora crie "dmesg_restrict.conf" e adicione:
+
+"kernel.dmesg_restrict=1"
+
+Esse bloqueia usuários que não sejam root de ler os logs do kernel. O logo do kernel pode dar ao intruso informações do sistema em que ele pode usar para fazer ataque exploit.
+
+Crie "harden_bpf.conf" e adicione
+
+"kernel.unprivileged_bpf_disable=1"
+"net.core.bpf_jit_harden=2"
+
+Esse faz com que apenas usuário root pode usar o compilador BPF JIT e protege-lo. um compilador JIT abre a possibilidade de ataque exploit explorar muitas vulnerabilidades. Isso virá com uma perda de performance e provavelmente não deve ser usada em servidores.
+
+Crie "ptrace_scope.conf" e adicione "kernel.yama.ptrace_scope=2". Esse faz com que apenas o root tenha acesso ao ptrace. Ptrace é um system call que permite que um programa alterar e inspecionar um processo em andamento. 
+Por padrão é restrito a permitir o usuário restringir seus próprios processos então isso talvez seja desnecessário.
