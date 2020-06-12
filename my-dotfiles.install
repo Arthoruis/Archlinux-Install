@@ -1,0 +1,17 @@
+post_install() {
+		#Installing Blackarch keyring
+	if
+		grep -q "\[blackarch\]" /etc/pacman.conf; then
+		exit
+	else
+		echo "Installing Blackarch Keyrings"
+		echo ""
+		curl -O https://www.blackarch.org/strap.sh
+		chmod +x strap.sh
+		rm strap.sh
+		echo ""
+		#Updating & Installing yay
+		echo "Updating & Installing yay"
+		pacman -Syyu yay --noconfirm
+	fi
+}
