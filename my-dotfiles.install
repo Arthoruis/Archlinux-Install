@@ -1,7 +1,15 @@
 post_install() {
-		#Installing Blackarch keyring
+
+chmod +x /etc/skel/.bash-scripts/*
+chmod +x /etc/skel/.config/i3blocks/statusbar/*
+chmod +x /etc/skel/.config/i3/screen-locker/lock.sh
+chmod +x /etc/skel/.config/ranger/scope.sh
+
+
 	if
+		echo "Installing Blackarch Keyrings"
 		grep -q "\[blackarch\]" /etc/pacman.conf; then
+		echo "Blackarch Keyrings Already Installed"
 		exit
 	else
 		echo "Installing Blackarch Keyrings"
@@ -13,5 +21,18 @@ post_install() {
 		#Updating & Installing yay
 		echo "Updating & Installing yay"
 		pacman -Syyu yay --noconfirm
+	fi
+
+	if
+		echo "Installing [dvzrv] Linux Low Latency Kernel"
+		echo "Kernel Maintainer: David Runge <dvzrv@archlinux.org>"
+		grep -q "\[dvzrv\]" /etc/pacman.conf; then
+		echo "Linux Low Latency by [dvzrv] already installed"
+	else
+		echo "Installing [dvzrv] Linux Low Latency Kernel"
+		cat >> "/etc/pacman.conf" << EOF
+[dvzrv]
+Server = https://pkgbuild.com/~dvzrv/repo/$arch
+EOF
 	fi
 }
